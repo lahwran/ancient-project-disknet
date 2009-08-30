@@ -1,0 +1,20 @@
+i'm writing a program to use a disk as a network
+if you have 2 computers
+and you want to do fileshareing between them
+but they're not networked
+then my program, disknet, can still help, because it's just an addon to usb disks
+once the disk and the computers are setup as a disknet,
+then you have a folder on both computers that you can put files in
+then when you sync with the disk
+the dick knows about the files
+and when it's pluged into a different computer, that computer can write to the disk that it wants those files
+and when the disk is plugged into the computer that has them 
+they'll be copied to the disk
+and then when the disk is plugged into the computer that wants them, they're copied
+only for linux
+but i'll keep adding to it
+so that it will hopefully work on windows
+and work better
+oh, and if the file is to big for the disk
+than it's split into parts
+and it will just take another trip or two, or three to get it over
