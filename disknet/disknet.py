@@ -1,21 +1,24 @@
 #!/usr/bin/python
-print
+
 import sys, getopt, os, commands, shutil
 
 default_mdata_dir="~/.disknet"
 #default_mdata_dir="./disknet"
 M=1024*1024
 MC=10*M
-usage_v="""Note that this will only run on Unix-based python installs right now.
-Global options:
+usage_messages="""Note that this will only run on Unix-based python installs right now."""
+usage_global="""Global options:
     -h		--help		show this message
+    -H		--help-all	show this message and all command help messages
     -s DIR	--sharedir=DIR	use DIR as share
     -d DIR	--diskdir=DIR	use DIR as disk. on wingdoze, this is D:\\ or 
     				 similar. on Linux and other unixes, this is the
     				 default mountpoint of the disk
     -p ADDR	--addr=ADDR	use ADDR as the disknet address of this computer
     				 <name>.<computername>
-    
+"""
+usage_commands={
+"commands":"""    
 Commands:
 	setup		set up and change the metadata on the local system
 	showsetup	show the setup on the local system
@@ -26,23 +29,29 @@ Commands:
 			 
 Unimplemented but Coming Commands:
 	browseindex	will list all indexes in the metadata
-
+""",
+"shared":"""Options shared between Commands:
+    -h		--help		display help for command
+    -m DIR	--metadir=DIR	read/write metadata from DIR. 
+    				 defaults to '~/.disknet'
+""",
+"setup":"""
 Setup Command Options:
-    -m DIR	--metadir=DIR	use DIR as the metadata directory. if this is
-    				 not specified, it defaults to '~/.disknet'.
     -s DIR	--sharedir=DIR	set DIR as default share in metadata
     -d DIR	--diskdir=DIR	set DIR as default dir in metadata
     -p ADDR	--addr=ADDR	set ADDR as disknet addr in metadata
-
+""",
+"showsetup":"""
 Showsetup Command Options:
     -m DIR	--metadir=DIR	read metadata from DIR. as in other places,
-    				 defaults to '~/.disknet'
-
+				 defaults to '~/.disknet'
+""",
+"setupdisk":"""
 Setupdisk Command Options:
     -m DIR	--metadir=DIR	 read metadata from DIR. as in other places,
     				  defaults to '~/.disknet'
-    -d DIR	--diskdir=DIR	 write disk metadata to DIR/.disknet. defaults to
-    				  current directory when not specified
+    -d DIR	--diskdir=DIR	 write disk metadata to DIR/.disknet. defaults
+    				  to current directory when not specified
     -f N	--maxfilesize=N  use N as the maximum single file size for 
     				  disknet to create on this disk
     -u N	--maxtotaluse=N  use N as the maximum amount of disk space that
@@ -51,7 +60,8 @@ Setupdisk Command Options:
     				  disk.
     -p ADDR	--addr=ADDR	 set the disk's address to ADDR. this follows
     				  the form <DISKNET>.<UNIQUE_NAME>.
-
+""",
+"sync":"""
 Sync Command Options:
     -m DIR	--metadir=DIR	read metadata from DIR. as in other places,
     				 defaults to '~/.disknet'
@@ -59,15 +69,15 @@ Sync Command Options:
     -s DIR	--sharedir=DIR	use DIR as share
     -p ADDR	--addr=ADDR	use ADDR as this system's disknet address
     -q		--quiet		don't output anything to the screen
-
+""",
+"get":"""
 Get Command Options:
-    -m DIR	--metadir=DIR	read metadata from DIR. as in other places,
-    				 defaults to '~/.disknet'
     ADDR/FILE			write a request for FILE from ADDR. FILE can't
     				 have directorys in it's path right now. this
     				 can be used multiple times to request multiple
     				 things.
-
+"""}
+usage_sizes="""
 options that accept a size N can have suffixes - K for *1024, M for *1024*1024,
 G for *1024*1024*1024, and T for 1024*1024*1024*1024. 
 KB, MB, etc are not supported.
@@ -90,9 +100,28 @@ def useddiskspace(path):
 def freedisknetspace(path,mdu):	#so that this calculation doesn't take up space in the small places it's used
 	return max(mdu-useddiskspace(path),0)	#negative is unacceptable
 
-def usage(progname):
-	print "Usage:",progname,"[GLOBAL_OPTION]... COMMAND [COMMAND_OPTION]..."
-	print usage_v
+def usage(progname,command=""):
+	if command=="":
+		print "Usage:",progname,"[GLOBAL_OPTION]... COMMAND [COMMAND_OPTION]..."
+		print usage_messages
+		print usage_global
+		print usage_commands["commands"]
+		print usage_commands["shared"]
+	elif command=="all":
+		print "Usage:",progname,"[GLOBAL_OPTION]... COMMAND [COMMAND_OPTION]..."
+		print usage_messages
+		print usage_global
+		print usage_commands["commands"]
+		print usage_commands["shared"]
+		for i in ["setup","showsetup","setupdisk","sync","get"]:
+			print usage_commands[i]
+	else:
+		print "Usage:",progname,"[GLOBAL_OPTION]... COMMAND [COMMAND_OPTION]..."
+		print usage_commands["commands"]
+		print usage_commands["shared"]
+		print "-"*80
+		print usage_commands[command]
+		print "-"*80
 def local_getopts(errexp,progname,argv,opts,longopts=[]):
 	try:
 		return getopt.gnu_getopt(argv,opts,longopts)
@@ -202,26 +231,31 @@ def append(fromf,tof):
 		
 
 def main():
-	from getopt import gnu_getopt as getopts
+	#from getopt import gnu_getopt as getopts
 	
 	from sys import argv
-	progname=argv[0]
+	progname=os.path.basename(argv[0])
 	argv=argv[1:]
 	opts=[]
 		
-	(opts,argv)=local_getopts(progname+":",progname,argv,"+hs:d:p:",["help","diskdir=","sharedir=","addr="])
+	(opts,argv)=local_getopts(progname+":",progname,argv,"+hHs:d:p:",["help","diskdir=","sharedir=","addr=","help-all"])
 	opts.sort()
 	
 	if ("--help","") in opts or ("-h","") in opts:
 		usage(progname)
 		sys.exit(0)
-		
-		
+	if ("--help-all","") in opts or ("-H","") in opts:
+		usage(progname,"all")
+		sys.exit(0)	
+	print
 	command=argv[0]
 	argv=argv[1:]
 	if command=="get":
-		(opts2,argv)=local_getopts(progname+": sync:",progname,argv,"m:",["metadir="])
+		(opts2,argv)=local_getopts(progname+": sync:",progname,argv,"hm:",["help","metadir="])
 		opts.extend(opts2)
+		if ("--help","") in opts or ("-h","") in opts:
+			usage(progname,command)
+			sys.exit(0)
 		metadata_dir=os.path.expanduser(default_mdata_dir)
 		for i in opts:
 			if i[0]=="--metadir" or i[0]=="-m":
@@ -232,8 +266,11 @@ def main():
 		dict2file(rqfromme,fullpath(metadata_dir+"/requests"))
 	elif command=="sync":
 	
-		(opts2,argv)=local_getopts(progname+": sync:",progname,argv,"m:s:d:p:q",["metadir=","diskdir=","sharedir=","addr=","quiet"])
+		(opts2,argv)=local_getopts(progname+": sync:",progname,argv,"hm:s:d:p:q",["help","metadir=","diskdir=","sharedir=","addr=","quiet"])
 		opts.extend(opts2)
+		if ("--help","") in opts or ("-h","") in opts:
+			usage(progname,command)
+			sys.exit(0)
 		metadata_dir=os.path.expanduser(default_mdata_dir)
 		diskdir="" #empty means "load from metadata"
 		sharedir=""
@@ -418,8 +455,11 @@ def main():
 		#_______________________________________________________________________
 	elif command=="setup": #this is designed to be run both for initial setup and for changing the setup
 	
-		(opts2,argv)=local_getopts(progname+": setup:",progname,argv,"m:s:d:p:",["metadir=","diskdir=","sharedir=","addr="])
+		(opts2,argv)=local_getopts(progname+": setup:",progname,argv,"hm:s:d:p:",["help","metadir=","diskdir=","sharedir=","addr="])
 		opts.extend(opts2)
+		if ("--help","") in opts or ("-h","") in opts:
+			usage(progname,command)
+			sys.exit(0)
 		metadata_dir=os.path.expanduser(default_mdata_dir)
 		for i in opts:
 			if i[0]=="--metadir" or i[0]=="-m":
@@ -438,8 +478,11 @@ def main():
 		print 
 		print "metadatadir="+metadata_dir
 	elif command=="showsetup":
-		(opts2,argv)=local_getopts(progname+": showsetup:",progname,argv,"m:",["metadir="])
+		(opts2,argv)=local_getopts(progname+": showsetup:",progname,argv,"hm:",["help","metadir="])
 		opts.extend(opts2)
+		if ("--help","") in opts or ("-h","") in opts:
+			usage(progname,command)
+			sys.exit(0)
 		metadata_dir=os.path.expanduser(default_mdata_dir)
 		for i in opts:
 			if i[0]=="--metadir" or i[0]=="-m":
@@ -448,8 +491,11 @@ def main():
 		for i in meta_settings.items():
 			print i[0]+"="+i[1]
 	elif command=="setupdisk": #this is initial setup only - should be all that's necessary
-		(opts2,argv)=local_getopts(progname+": setupdisk:",progname,argv,"m:d:f:u:p:",["metadir=","diskdir=","maxfilesize=","maxtotaluse=","addr="])
+		(opts2,argv)=local_getopts(progname+": setupdisk:",progname,argv,"hm:d:f:u:p:",["help","metadir=","diskdir=","maxfilesize=","maxtotaluse=","addr="])
 		opts.extend(opts2)
+		if ("--help","") in opts or ("-h","") in opts:
+			usage(progname,command)
+			sys.exit(0)
 		metadata_dir=os.path.expanduser(default_mdata_dir)
 		diskdir=""
 		for i in opts:
