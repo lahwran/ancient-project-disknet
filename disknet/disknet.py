@@ -1,5 +1,5 @@
 #!/usr/bin/python
-
+#TODO: make get work for inet, add push, fix space-in-share-path bug
 import sys, getopt, os, commands, shutil
 
 default_mdata_dir="~/.disknet"
