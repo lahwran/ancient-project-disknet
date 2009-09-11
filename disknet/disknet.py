@@ -1,6 +1,7 @@
 #!/usr/bin/python
 #TODO: make get work for inet, add push, fix space-in-share-path bug
 import sys, getopt, os, commands, shutil
+#import classes
 
 default_mdata_dir="~/.disknet"
 #default_mdata_dir="./disknet"
@@ -161,16 +162,18 @@ def dict2file(d,filename):
 def fullpath(path):
 	return os.path.realpath(os.path.expanduser(path))
 
-def part(count,offset,infile,prefix,offsetisbytes=0):
+def part(count,offset,infile,prefix,offsetisbytes=0,outfile=""):
 	iternum=count/MC
 	if iternum == 0:
 		iternum = 1		#just a little failsafe - it might be triggered if count is a K number
 	infile=open(infile,"rb") #convert the arg infile - a filename - into a real file ob
 	if not offsetisbytes:
-		offset*=count
+		offset*=MC
 	infile.seek(offset)
 	filename=prefix
-	if offsetisbytes:
+	if outfile != "":
+		filename=outfile
+	elif offsetisbytes:
 		filename=filename+".disknet"	#it always will have this ... hmmm...
 	else:
 		filename=filename+'%010'%offset		#this will not work for byteoffsets
@@ -192,6 +195,7 @@ def part(count,offset,infile,prefix,offsetisbytes=0):
 	lent=infile.tell()
 	ofile.close()
 	return cpos, lent, filename
+	
 	
 def expandsize(size):
 	if type(size) == type(""):
@@ -264,6 +268,46 @@ def main():
 		for request in argv:
 			rqfromme[request]=1
 		dict2file(rqfromme,fullpath(metadata_dir+"/requests"))
+	elif command=="part": #not in the help message because it's .. for no reason
+		(opts2,argv)=local_getopts(progname+": part:",progname,argv,"i:o:s:e:a:c:h",["infile=","outfile=","start=","end=","amount=","count=","help"])
+		opts.extend(opts2)
+		infile=""
+		outfile=""
+		start=""
+		count=""
+		for i in opts:
+			if i[0]=="--infile" or i[0]=="-i":
+				infile=fullpath(i[1])
+			elif i[0]=="--outfile" or i[0]=="-o":
+				outfile=fullpath(i[1])
+			elif i[0]=="--start" or i[0]=="-s":
+				start=expandsize(i[1])
+			elif i[0]=="--end" or i[0]=="-e":
+				count=expandsize(i[1])-start # will cause error if start is after end
+			elif i[0]=="--count" or i[0]=="-c":
+				count=expandsize(i[1])
+			elif i[0]=="--amount" or i[0]=="-a":
+				count=expandsize(i[1])
+			elif i[0]=="--help" or i[0]=="-h":
+				print """ "i:o:s:e:a:c:",["infile=","outfile=","start=","end=","amount=","count="] """
+				sys.exit(100)
+		if infile=="" or outfile=="" or start=="" or count=="":
+			print "incorrect usage"
+			sys.exit(100)
+		bl=','
+		print "part("+str(count/10),bl,str(start),bl,"'"+infile+"'",bl,'None',bl,1,bl,outfile,bl,1,")"
+		(a,b,c)=part(count/10,start,infile,None,1,outfile)#count,offset,infile,prefix,offsetisbytes=0,outfile="")
+		def compresssize(amount):
+			amount=float(amount)
+			if amount/(1024.0*1024.0*1024.0)>1.0: #g
+				return str(amount/(1024.0*1024.0*1024.0))+"G"
+			elif amount/(1024.0*1024.0)>1.0: #m
+				return str(amount/(1024.0*1024.0))+"M"
+			elif amount/(1024.0)>1.0: #k
+				return str(amount/(1024.0))+"K"
+			else:
+				return str(amount)
+		print compresssize(a),"("+str(a)+") of",compresssize(b),"parted."
 	elif command=="sync":
 	
 		(opts2,argv)=local_getopts(progname+": sync:",progname,argv,"hm:s:d:p:q",["help","metadir=","diskdir=","sharedir=","addr=","quiet"])
